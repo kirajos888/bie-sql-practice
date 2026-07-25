@@ -1,0 +1,107 @@
+-- -------------------------------------------------------------------
+-- Date: July 24 | ThoughtSpot (Advanced) | Topic: Subqueries
+-- Problem: Subqueries improving performance
+-- -------------------------------------------------------------------
+-- All clauses which does de-duplication like COUNT(DISTINCT) or UNION compared to COUNT(*) OR UNION ALL runs slower as they take up working memory
+-- hence avoid multiplicative effect of joining queries by aggregating before joining.
+
+-- Write a query that counts the number of companies founded and acquired by quarter starting in Q1 2012. Create the aggregations in two separate queries, then join them.
+
+SELECT COALESCE(ac.acquired_quarter, inv.funded_quarter) AS qtr,
+  SUM(ac.ct),
+  SUM(inv.ct2)
+  FROM 
+  (
+  SELECT acquired_quarter, COUNT(DISTINCT company_permalink) AS ct
+    FROM tutorial.crunchbase_acquisitions acquisitions
+    WHERE acquired_quarter >= '2012-Q1'
+    GROUP BY 1
+    ORDER BY 1
+  ) ac 
+  FULL JOIN 
+  (
+  SELECT funded_quarter, COUNT(DISTINCT company_permalink) AS ct2
+    FROM tutorial.crunchbase_investments
+    WHERE funded_quarter >= '2012-Q1'
+    GROUP BY 1
+    ORDER BY 1
+  ) inv 
+  ON ac.acquired_quarter = inv.funded_quarter
+  GROUP BY 1
+  ORDER BY 1
+
+-- Subqueries and UNIONs
+-- How do we optimize UNIONs using subqueries?
+
+SELECT COUNT(*) AS total_rows
+FROM 
+(
+
+SELECT *
+  FROM tutorial.crunchbase_investments_part1
+
+ UNION ALL
+
+ SELECT *
+   FROM tutorial.crunchbase_investments_part2
+
+) su 
+
+-- Write a query that ranks investors from the combined dataset above by the total number of investments they have made.
+
+SELECT investor_name, SUM(vt) AS total_inv
+FROM 
+(
+
+SELECT investor_name, COUNT(*) AS vt
+  FROM tutorial.crunchbase_investments_part1
+  GROUP BY 1
+
+
+ UNION ALL
+
+ SELECT investor_name, COUNT(*) AS vt
+   FROM tutorial.crunchbase_investments_part2
+  GROUP BY 1
+
+) su 
+GROUP BY 1
+  ORDER BY 2 DESC
+
+-- Write a query that does the same thing as in the previous problem, except only for companies that are still operating.
+
+SELECT investor_name, SUM(vt) AS total_inv
+  FROM 
+  (
+
+  SELECT investor_name, COUNT(*) AS vt
+    FROM tutorial.crunchbase_investments_part1 t1
+    INNER JOIN 
+      (SELECT *
+      FROM 
+      tutorial.crunchbase_companies
+      WHERE status = 'operating') op 
+    ON op.permalink = t1.company_permalink
+    GROUP BY 1
+
+
+  UNION ALL
+
+  SELECT investor_name, COUNT(*) AS vt
+    FROM tutorial.crunchbase_investments_part2 t2 
+    INNER JOIN 
+      (SELECT *
+          FROM 
+          tutorial.crunchbase_companies
+          WHERE status = 'operating') op 
+      ON op.permalink = t2.company_permalink
+      GROUP BY 1
+
+
+  ) su 
+
+  GROUP BY 1
+  ORDER BY 2 DESC
+
+-- end
+  
