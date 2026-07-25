@@ -1,0 +1,61 @@
+-- -------------------------------------------------------------------
+-- Date: 24-July | ThoughtSpot (Advanced) | Topic: Performance Tuning SQL Queries
+-- Link: https://www.thoughtspot.com/sql-tutorial/sql-performance-tuning
+-- Top 3 controllable drivers
+	-- filter to lesser rows
+	-- join lesser rows
+	-- reduce aggregations
+-- -------------------------------------------------------------------
+
+-- Optimize the query
+SELECT *
+  FROM benn.sample_event_table
+
+-- Soln
+SELECT *
+  FROM benn.sample_event_table
+ WHERE event_date >= '2014-03-01'
+   AND event_date <  '2014-04-01'
+
+-- Why does LIMIT not optimize during aggregation?
+-- LIMIT runs after aggregation is done; 
+-- How do we optimize? follow below solve to optimize
+
+SELECT COUNT(*)
+  FROM 
+  (SELECT *
+  FROM benn.sample_event_table
+  LIMIT 100
+  ) sub
+
+-- Optimize
+SELECT teams.conference AS conference,
+       players.school_name,
+       COUNT(1) AS players
+  FROM benn.college_football_players players
+  JOIN benn.college_football_teams teams
+    ON teams.school_name = players.school_name
+ GROUP BY 1,2
+
+-- Soln
+
+SELECT teams.conference AS conference,
+       sub.*
+  FROM 
+    (
+    SELECT players.school_name,
+       COUNT(1) AS players
+    FROM benn.college_football_players players
+    GROUP BY 1
+    ) sub
+  JOIN benn.college_football_teams teams
+    ON teams.school_name = sub.school_name
+
+-- Calculating query cost
+
+EXPLAIN
+SELECT *
+  FROM benn.sample_event_table
+ WHERE event_date >= '2014-03-01'
+   AND event_date < '2014-04-01'
+ LIMIT 10
