@@ -1,0 +1,176 @@
+-- -------------------------------------------------------------------
+-- Date: 24-July | ThoughtSpot (Advanced) | Topic: SQL Window Functions: ROW_NUMBER, LAG, LEAD, NTILE
+-- Link: https://www.thoughtspot.com/sql-tutorial/sql-window-functions
+-- Problem: Window fn syntax
+-- -------------------------------------------------------------------
+
+SELECT start_terminal,
+       duration_seconds,
+       (SUM(duration_seconds) OVER
+         (PARTITION BY start_terminal ORDER BY start_time)) AS running_total
+          
+  FROM tutorial.dc_bikeshare_q1_2012
+ WHERE start_time < '2012-01-08'
+
+
+-- Write a query modification of the above example query that shows the duration of each ride as a percentage of the total time accrued by riders from each start_terminal
+
+SELECT start_terminal,
+       duration_seconds,
+       (SUM(duration_seconds) OVER
+         (PARTITION BY start_terminal ORDER BY start_time)) AS running_total,
+          (duration_seconds)/((SUM(duration_seconds) OVER
+         (PARTITION BY start_terminal )))
+         AS perc_total
+  FROM tutorial.dc_bikeshare_q1_2012
+ WHERE start_time < '2012-01-08'
+
+-- The usual suspects: SUM, COUNT, and AVG
+
+SELECT start_terminal,
+       duration_seconds,
+       (SUM(duration_seconds) OVER
+         (PARTITION BY start_terminal ORDER BY start_time)) AS running_total,
+        (COUNT(duration_seconds) OVER
+         (PARTITION BY start_terminal ORDER BY start_time)) AS running_count,
+         (AVG(duration_seconds) OVER
+         (PARTITION BY start_terminal ORDER BY start_time)) AS moving_avg
+  FROM tutorial.dc_bikeshare_q1_2012
+  WHERE start_time < '2012-01-08'
+
+-- ROW_NUMBER(), RANK() and DENSE_RANK()
+
+SELECT start_terminal,
+       duration_seconds,
+       ROW_NUMBER() OVER (
+          PARTITION BY start_terminal
+          ORDER BY duration_seconds DESC 
+
+       ) AS rows,
+       RANK() OVER(
+          PARTITION BY start_terminal
+          ORDER BY duration_seconds DESC 
+
+       ) AS rk,
+       DENSE_RANK() OVER(
+          PARTITION BY start_terminal
+          ORDER BY duration_seconds DESC 
+
+       ) AS drk
+
+  FROM tutorial.dc_bikeshare_q1_2012
+  WHERE start_time < '2012-01-08'
+  AND rider_type = 'Registered'
+
+
+-- Write a query that shows the 5 longest rides from each starting terminal, ordered by terminal, and longest to shortest rides within each terminal. Limit to rides that occurred before Jan. 8, 2012.
+
+SELECT start_terminal,
+          duration_seconds,
+          rk
+    FROM 
+    (
+    SELECT start_terminal,
+          duration_seconds,
+         /*ROW_NUMBER() OVER (
+              PARTITION BY start_terminal
+              ORDER BY duration_seconds DESC 
+
+          ) AS rows,*/
+          RANK() OVER(
+              PARTITION BY start_terminal
+              ORDER BY duration_seconds DESC 
+
+          ) AS rk--,
+          /*DENSE_RANK() OVER(
+              PARTITION BY start_terminal
+              ORDER BY duration_seconds DESC 
+
+          ) AS drk*/
+
+      FROM tutorial.dc_bikeshare_q1_2012
+      WHERE start_time < '2012-01-08'
+    ) sub 
+    WHERE rk<=5
+
+    ORDER BY 1, 3
+
+-- NTILE
+
+    SELECT start_terminal,
+          duration_seconds,
+          NTILE(4) OVER (
+            PARTITION BY start_terminal 
+            ORDER BY duration_seconds 
+          ) AS "4p",
+          NTILE(10) OVER (
+            PARTITION BY start_terminal 
+            ORDER BY duration_seconds
+          ) AS "10p",
+          NTILE(100) OVER(
+            PARTITION BY start_terminal 
+            ORDER BY duration_seconds 
+
+          ) AS "100p"
+
+          
+      FROM tutorial.dc_bikeshare_q1_2012
+      WHERE start_time < '2012-01-08'
+
+-- Write a query that shows only the duration of the trip and the percentile into which that duration falls (across the entire dataset—not partitioned by terminal).
+
+
+
+    SELECT --start_terminal,
+          duration_seconds,
+
+          NTILE(100) OVER(
+            --PARTITION BY start_terminal 
+            ORDER BY duration_seconds 
+
+          ) AS "100p"
+
+          
+      FROM tutorial.dc_bikeshare_q1_2012
+      WHERE start_time < '2012-01-08'
+      ORDER BY 1 DESC
+
+-- LAG and LEAD
+
+SELECT start_terminal,
+          duration_seconds,
+
+          LAG(duration_seconds, 2) OVER(
+            PARTITION BY start_terminal 
+            ORDER BY duration_seconds 
+
+          ) AS lagx,
+          LEAD(duration_seconds, 2) OVER(
+            PARTITION BY start_terminal 
+            ORDER BY duration_seconds 
+
+          ) AS leadx
+
+          
+      FROM tutorial.dc_bikeshare_q1_2012
+      WHERE start_time < '2012-01-08'
+      --ORDER BY 1 DESC
+
+-- defining windowing alias for multiple usage
+
+    SELECT start_terminal,
+          duration_seconds,
+
+          LAG(duration_seconds, 2) OVER win AS lagx,
+          LEAD(duration_seconds, 2) OVER win AS leadx
+
+          
+      FROM tutorial.dc_bikeshare_q1_2012
+      WHERE start_time < '2012-01-08'
+      WINDOW win AS 
+        (PARTITION BY start_terminal 
+            ORDER BY duration_seconds)
+
+-- 
+
+
