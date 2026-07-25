@@ -1,0 +1,80 @@
+-- -------------------------------------------------------------------
+-- Date: 24-July | ThoughtSpot (Advanced) | Topic: How to Pivot Data in SQL: Rows to Columns
+-- Link: https://www.thoughtspot.com/sql-tutorial/sql-pivot-table
+-- -------------------------------------------------------------------
+
+-- Converting the row format like this
+
+  SELECT teams.conference AS conference,
+        players.year,
+        COUNT(1) AS players
+    FROM benn.college_football_players players
+    JOIN benn.college_football_teams teams
+      ON teams.school_name = players.school_name
+  GROUP BY 1,2
+  ORDER BY 1,2
+
+-- to the column format (pivot) like this
+
+SELECT sub.conference,
+      SUM(players) AS total_players,
+      SUM(CASE WHEN year = 'FR' THEN players ELSE 0 END) AS FR,
+      SUM(CASE WHEN year = 'JR' THEN players ELSE 0 END) AS JR,
+      SUM(CASE WHEN year = 'SO' THEN players ELSE 0 END) AS SO,
+      SUM(CASE WHEN year = 'SR' THEN players ELSE 0 END) AS SR
+  FROM   
+  (
+  SELECT teams.conference AS conference,
+        players.year,
+        COUNT(1) AS players
+    FROM benn.college_football_players players
+    JOIN benn.college_football_teams teams
+      ON teams.school_name = players.school_name
+  GROUP BY 1,2
+  ORDER BY 1,2
+  ) sub 
+  GROUP BY 1
+  ORDER BY 1, 2
+
+-- Pivoting columns to rows
+
+WITH year AS (
+  SELECT 2000 AS year
+  UNION ALL SELECT 2001
+  UNION ALL SELECT 2002
+  UNION ALL SELECT 2003
+  UNION ALL SELECT 2004
+  UNION ALL SELECT 2005
+  UNION ALL SELECT 2006
+  UNION ALL SELECT 2007
+  UNION ALL SELECT 2008
+  UNION ALL SELECT 2009
+  UNION ALL SELECT 2010
+  UNION ALL SELECT 2011
+  UNION ALL SELECT 2012
+  
+)
+
+
+SELECT year.year,
+      magnitude,
+      CASE year
+        WHEN 2000 THEN year_2000
+        WHEN 2001 THEN year_2001
+        WHEN 2002 THEN year_2002
+        WHEN 2003 THEN year_2003
+        WHEN 2004 THEN year_2004
+        WHEN 2005 THEN year_2005
+        WHEN 2006 THEN year_2006
+        WHEN 2007 THEN year_2007
+        WHEN 2008 THEN year_2008
+        WHEN 2009 THEN year_2009
+        WHEN 2010 THEN year_2010
+        WHEN 2011 THEN year_2011
+        WHEN 2012 THEN year_2012
+        ELSE 0 END AS number_of_earthquakes
+  FROM tutorial.worldwide_earthquakes ea
+  CROSS JOIN year
+  ORDER BY 1,2
+
+-- end
