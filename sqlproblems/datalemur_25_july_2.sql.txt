@@ -1,0 +1,243 @@
+-- -------------------------------------------------------------------
+-- Date: 25-July | DataLemur  | Topic: SQL (Medium)
+-- Problem: FAANG Stock Min-Max (Part 1)
+-- -------------------------------------------------------------------
+
+/*
+find highest and lowest and associated months
+pivot them to show output ordered by ticker
+
+*/
+
+WITH tb1 AS
+    (SELECT ticker, DT, open,
+              ROW_NUMBER() OVER( --using row_number because we do not want multiple lines
+              PARTITION BY ticker
+              ORDER BY max DESC
+            ) AS rkmax,
+              ROW_NUMBER() OVER(
+              PARTITION BY ticker
+              ORDER BY min 
+            ) AS rkmin
+      FROM
+        (SELECT ticker, EXTRACT(YEAR FROM date) Y, EXTRACT(MONTH FROM date) M , TO_CHAR(date, 'Mon-YYYY') DT, open, MAX(open), MIN(OPEN)
+    
+          FROM stock_prices 
+          GROUP BY 1,2,3,4,5
+          ORDER BY 1,2,3,4,5
+        ) sub
+    )
+
+SELECT tb2.ticker, tb2.DT AS highest_mth, tb2.open AS highest_open, tb3.DT AS lowest_mth, tb3.open AS lowest_open
+
+  FROM tb1 tb2
+  LEFT JOIN tb1 tb3
+  ON tb2.ticker = tb3.ticker
+  AND tb2.rkmax = 1
+  AND tb2.rkmax = tb3.rkmin
+  
+  WHERE tb2.rkmax = 1
+ 
+____
+-- User Shopping Sprees
+
+-- Lease optimized solution
+
+SELECT DISTINCT user_id
+  FROM
+  (SELECT user_id, transaction_date,
+      CASE WHEN transaction_date IS NOT NULL THEN 1 ELSE 0 END AS ct,
+      CASE WHEN (LAG(transaction_date, 1) OVER winfn) IS NOT NULL THEN 1 ELSE 0 END AS lag1,
+      CASE WHEN (LAG(transaction_date, 2) OVER winfn) IS NOT NULL THEN 1 ELSE 0 END AS lag2
+    FROM transactions
+    WHERE amount IS NOT NULL 
+    WINDOW winfn AS 
+      (PARTITION BY user_id
+      ORDER BY transaction_date)
+    ) sub
+  WHERE ct+lag1+lag2 >= 3
+  ORDER BY 1
+  
+-- Optimized better than previous query; dropped the 3 CASEs
+
+SELECT DISTINCT user_id
+  FROM
+  (SELECT user_id, DATE(transaction_date) AS org,
+      
+    DATE(LAG(transaction_date, 1) OVER winfn) AS lag1,
+    DATE(LAG(transaction_date, 2) OVER winfn) AS lag2
+    FROM transactions
+    WHERE amount IS NOT NULL 
+    WINDOW winfn AS 
+      (PARTITION BY user_id
+      ORDER BY transaction_date)
+    ) sub
+  WHERE org = lag1 + 1
+  AND org = lag2 + 2
+  ORDER BY 1
+
+-- Most optimized SELF JOIN method; Written better than what DataLemur proposed; They missed user_id condition
+
+SELECT DISTINCT t1.user_id
+    FROM transactions t1
+    JOIN transactions t2
+    ON DATE(t1.transaction_date) = DATE(t2.transaction_date) + 1
+    AND t1.user_id = t2.user_id
+    JOIN transactions t3
+    ON DATE(t1.transaction_date) = DATE(t3.transaction_date) + 1
+    AND t1.user_id = t3.user_id
+    WHERE t1.amount IS NOT NULL
+
+___
+--  Histogram of Users and Purchases
+
+WITH tb1 AS (
+  SELECT *, 
+    RANK() OVER (
+      PARTITION BY user_id
+      ORDER BY transaction_date DESC
+    ) AS rk
+    FROM user_transactions
+)
+
+SELECT transaction_date, user_id, COUNT(DISTINCT product_id)
+  FROM tb1
+  WHERE rk=1
+  GROUP BY 1, 2
+  ORDER BY 1
+
+___
+-- Compressed Mode
+
+-- Soln 1: Anyone can do this
+
+SELECT item_count
+  FROM 
+    (SELECT item_count,
+        RANK() OVER (
+          ORDER BY order_occurrences DESC
+        ) AS rk
+    FROM items_per_order
+    
+    ) sub
+    WHERE rk = 1
+    ORDER BY 1
+
+-- Soln 2: using fns
+
+SELECT item_count
+  FROM items_per_order
+  WHERE order_occurrences = 
+    (SELECT MODE() WITHIN GROUP(ORDER BY order_occurrences DESC) AS md 
+        FROM items_per_order
+               
+    ) 
+    ORDER BY 1
+
+___
+-- Card Launch Success
+
+--Soln 1
+
+SELECT card_name, issued_amount
+  FROM 
+    (SELECT card_name, issued_amount,
+        RANK() OVER (
+          PARTITION BY card_name
+          ORDER BY issue_year, issue_month
+        ) AS rk 
+      FROM monthly_cards_issued
+    ) sub 
+  WHERE rk = 1
+  ORDER BY 2 DESC
+
+-- Soln 2: efficient 
+
+SELECT card_name, issued_amount
+  FROM
+  (SELECT card_name, issued_amount, MAKE_DATE(issue_year, issue_month,1) AS issue_date,
+    MIN(MAKE_DATE(issue_year, issue_month, 1)) OVER(
+      PARTITION BY card_name
+      ) AS launch_date
+    FROM monthly_cards_issued
+  ) sub
+  WHERE launch_date = issue_date
+  ORDER BY 2 DESC
+
+__
+-- International Call Percentage
+
+-- Soln 1 using JOIN/SUM/CASE
+
+
+  SELECT ROUND(100.0*(COUNT( (CASE WHEN n1.country_id != n2.country_id THEN call_time ELSE NULL END) ))/
+    COUNT(p1.call_time),1) AS int_p
+    
+    FROM phone_calls p1
+    LEFT JOIN phone_info n1
+    ON p1.caller_id = n1.caller_id
+    LEFT JOIN phone_info n2
+    ON p1.receiver_id = n2.caller_id
+    
+
+
+-- Soln 2 using FILTER (cheaper as it aggregates post condition, no case overead creating row branching)
+
+
+
+  SELECT ROUND(100.0*(COUNT(*) FILTER(WHERE n1.country_id != n2.country_id) )/
+    COUNT(p1.call_time),1) AS int_p
+    
+    FROM phone_calls p1
+    LEFT JOIN phone_info n1
+    ON p1.caller_id = n1.caller_id
+    LEFT JOIN phone_info n2
+    ON p1.receiver_id = n2.caller_id
+
+___
+-- Patient Support Analysis (Part 2)
+
+--SOLN USING FILTER
+
+SELECT ROUND(100.0 * (COUNT(*) FILTER(WHERE call_category = 'n/a' OR call_category IS NULL)) / COUNT(*), 1) as perc
+  FROM callers
+
+___
+-- Active User Retention
+
+--SOLN 1 which is situation specific
+
+SELECT f1.month, COUNT(DISTINCT f1.user_id) AS monthly_active_users
+  FROM
+  (SELECT EXTRACT(MONTH FROM event_date) AS month, user_id
+    FROM user_actions
+    WHERE event_type IN ('like', 'comment', 'sign-in')
+    AND DATE_TRUNC('month', event_date) = '2022-07-01'::DATE -- Also can use TO_CHAR(event_date, 'Mon-YYYY') = 'Jul-2022'
+    
+  ) f1
+  JOIN
+  (SELECT EXTRACT(MONTH FROM event_date) AS month, user_id
+    FROM user_actions
+    WHERE event_type IN ('like', 'comment', 'sign-in')
+    AND DATE_TRUNC('month',event_date) = '2022-06-01'::DATE
+    
+  ) f2
+  ON f1.user_id = f2.user_id
+  GROUP BY 1
+
+--SOLN 2 which is generalized for any month filter
+
+SELECT EXTRACT(MONTH FROM cur_m.event_date) AS month, COUNT(DISTINCT cur_m.user_id) AS monthly_active_users
+  FROM user_actions AS cur_m 
+  WHERE EXISTS (SELECT las_m.user_id
+    FROM user_actions AS las_m
+    WHERE las_m.event_type IN ('like', 'comment', 'sign-in')
+    AND las_m.user_id = cur_m.user_id
+    AND EXTRACT(MONTH FROM las_m.event_date) = EXTRACT(MONTH FROM cur_m.event_date) - 1 
+  )
+  AND DATE_TRUNC('month', cur_m.event_date) = '2022-07-01'::DATE
+  AND cur_m.event_type IN ('like', 'comment', 'sign-in')
+  GROUP BY 1
+
+___
+-- end
