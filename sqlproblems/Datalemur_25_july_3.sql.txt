@@ -1,0 +1,46 @@
+-- -------------------------------------------------------------------
+-- Date: 25-July | DataLemur  | Topic: SQL (Hard)
+-- Problem: Y-on-Y Growth Rate
+-- -------------------------------------------------------------------
+
+-- SOLN 1 using SELF JOIN
+
+WITH tb1 AS (
+  SELECT  EXTRACT(YEAR FROM transaction_date) AS year, product_id, SUM(spend) AS tot
+  FROM user_transactions
+  GROUP BY 1, 2
+)
+
+SELECT c.year, c.product_id, c.tot, l.tot, 
+    CASE WHEN l.tot IS NOT NULL THEN ROUND(100.0* (c.tot/l.tot - 1) , 2) 
+      ELSE NULL END AS yoy_rate
+  FROM tb1 AS c 
+  LEFT JOIN tb1 AS l 
+  ON c.product_id = l.product_id
+  AND c.year = l.year + 1
+  ORDER BY c.product_id, c.year, yoy_rate DESC
+
+-- SOLN 2 USING LAG (Cleanest & Fastest)
+
+WITH t AS (
+  SELECT TO_CHAR(transaction_date, 'YYYY') AS yr, product_id, SUM(spend) AS tot 
+    FROM user_transactions
+    GROUP BY 1, 2
+  ),
+s1 AS (
+  SELECT yr, product_id, tot AS curr_year_spend, 
+    LAG(tot, 1) OVER (
+      PARTITION BY product_id
+      ORDER BY yr 
+    ) AS prev_year_spend
+    FROM t
+  )
+
+SELECT yr, product_id, curr_year_spend, prev_year_spend,
+    CASE WHEN prev_year_spend IS NOT NULL THEN ROUND(100.0 * (curr_year_spend/ prev_year_spend - 1), 2) 
+      ELSE NULL END AS yoy
+  FROM s1
+  ORDER BY 2, 1
+
+__
+-- 
