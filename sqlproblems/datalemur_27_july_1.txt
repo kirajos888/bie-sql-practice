@@ -1,0 +1,74 @@
+-- -------------------------------------------------------------------
+-- Date: 27-July | DataLemur  | Topic: SQL (Hard)
+-- Problem: Advertiser Status
+-- -------------------------------------------------------------------
+
+SELECT COALESCE(a.user_id, dp.user_id),
+    CASE WHEN a.user_id IS NULL 
+      THEN 'NEW' 
+    WHEN dp.paid IS NULL
+      THEN 'CHURN' 
+    WHEN dp.paid IS NOT NULL 
+      AND a.status = 'CHURN'
+        THEN 'RESURRECT'
+    ELSE 'EXISTING' 
+    END AS new_status
+  FROM advertiser a 
+  FULL OUTER JOIN daily_pay dp
+  ON a.user_id = dp.user_id
+  ORDER BY 1
+
+
+-- -------------------------------------------------------------------
+-- Problem: 3-Topping Pizzas
+-- -------------------------------------------------------------------
+
+-- SOLN 1 LEFT JOIN
+
+SELECT p1.topping_name || ',' || p2.topping_name || ',' || p3.topping_name AS pizza,
+    p1.ingredient_cost + p2.ingredient_cost + p3.ingredient_cost AS total_cost
+  FROM pizza_toppings p1
+  LEFT JOIN pizza_toppings p2
+  ON p1.topping_name < p2.topping_name
+  LEFT JOIN pizza_toppings p3
+  ON p2.topping_name < p3.topping_name
+  WHERE p3.topping_name IS NOT NULL
+  ORDER BY 2 DESC, 1
+
+-- SOLN 2 CROSS JOIN
+
+SELECT p1.topping_name || ',' || p2.topping_name || ',' || p3.topping_name AS pizza,
+    p1.ingredient_cost + p2.ingredient_cost + p3.ingredient_cost AS total_cost
+  FROM pizza_toppings p1
+  CROSS JOIN pizza_toppings p2,
+            pizza_toppings p3
+  WHERE p1.topping_name < p2.topping_name
+  AND p2.topping_name < p3.topping_name
+  AND p3.topping_name IS NOT NULL
+  ORDER BY 2 DESC, 1
+
+-- SOLN 3 RECURSIVE CTEs
+
+WITH RECURSIVE all_top AS (
+  SELECT
+    topping_name::VARCHAR,
+    ingredient_cost::DECIMAL AS total_cost,
+    1 AS top_num
+    FROM pizza_toppings 
+  
+  UNION ALL
+  
+  SELECT pt.topping_name || ',' || a.topping_name AS topping_name,
+      pt.ingredient_cost + a.total_cost AS total_cost,
+      a.top_num + 1 
+    FROM pizza_toppings pt ,
+       all_top a 
+    WHERE pt.topping_name > a.topping_name
+  )
+  
+SELECT STRING_AGG(single_topping, ',', order by single_topping) AS pizza,
+      total_cost
+  FROM all_top,
+      REGEXP_SPLIT_TO_TABLE(topping_name, ',') AS single_topping
+  WHERE top_num = 3
+  ORDER BY 2 DESC, 1
