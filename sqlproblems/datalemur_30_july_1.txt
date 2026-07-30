@@ -1,0 +1,56 @@
+-- -------------------------------------------------------------------
+-- Date: 29-July | DataLemur  | Topic: SQL (Hard)
+-- Problem: Consecutive Filing Years
+-- -------------------------------------------------------------------
+
+--SOLN 1 USING LAG
+
+WITH op3 AS (
+  SELECT user_id,
+    filing_date f1,
+    LAG(filing_date, 1) OVER(
+      PARTITION BY user_id
+      ORDER BY filing_date
+    ) AS f2,
+
+    LAG(filing_date, 2) OVER(
+      PARTITION BY user_id
+      ORDER BY filing_date
+    ) AS f3
+    
+    FROM filed_taxes
+    WHERE product ILIKE '%turbotax%'
+),
+op4 AS (
+SELECT DISTINCT user_id
+  FROM op3
+  
+  WHERE EXTRACT(YEAR FROM f1) = EXTRACT(YEAR FROM f2) + 1
+    AND EXTRACT(YEAR FROM f2) = EXTRACT(YEAR FROM f3) + 1
+     
+)
+
+SELECT *
+  FROM op4
+
+--SOLN 2 USIN CROSS JOIN OR SELF JOIN
+
+WITH op AS(
+SELECT DISTINCT f1.user_id
+  FROM filed_taxes f1
+  CROSS JOIN filed_taxes f2
+  CROSS JOIN filed_taxes f3 -- joined 1 n 2
+  WHERE f1.user_id = f2.user_id
+  AND EXTRACT(YEAR FROM f1.filing_date) = EXTRACT(YEAR FROM f2.filing_date) - 1
+--  JOIN filed_taxes f3 -- 1 n 2
+  AND f2.user_id = f3.user_id
+  AND EXTRACT(YEAR FROM f1.filing_date) = EXTRACT(YEAR FROM f3.filing_date) - 2
+  AND f1.product ILIKE '%turbotax%'
+AND f2.product ILIKE '%turbotax%'
+AND f3.product ILIKE '%turbotax%'
+
+)
+
+SELECT *
+  FROM op
+-----------------------------------------------
