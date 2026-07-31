@@ -53,4 +53,46 @@ AND f3.product ILIKE '%turbotax%'
 
 SELECT *
   FROM op
------------------------------------------------
+
+----------------------------------------------------------------------
+-- Problem: Marketing Touch Streak
+-- -------------------------------------------------------------------
+
+WITH base AS(
+  SELECT contact_id,
+      event_type e1,
+      LAG(event_type) OVER(
+        PARTITION BY contact_id
+        ORDER BY event_date
+      ) AS e2, 
+      LEAD(event_type) OVER(
+        PARTITION BY contact_id
+        ORDER BY event_date
+      ) AS e3,
+      event_date d1,
+      LAG(event_date) OVER(
+        PARTITION BY contact_id
+        ORDER BY event_date
+      ) AS d2, 
+      LEAD(event_date) OVER(
+        PARTITION BY contact_id
+        ORDER BY event_date
+      ) AS d3
+    FROM marketing_touches
+),
+jn AS (
+  SELECT email
+    FROM base b
+    LEFT JOIN crm_contacts cc 
+    ON b.contact_id = cc.contact_id
+    WHERE e1 IS NOT NULL
+    AND  e2 IS NOT NULL
+    AND  e3 IS NOT NULL
+    AND (e1 = 'trial_request' OR e2 = 'trial_request' OR e3 = 'trial_request')
+    AND DATE_TRUNC('week', d1) = DATE_TRUNC('week', d2) +  INTERVAL '1 week'
+    AND DATE_TRUNC('week', d3) = DATE_TRUNC('week', d1) +  INTERVAL '1 week'
+)
+
+SELECT *
+  FROM jn
+
