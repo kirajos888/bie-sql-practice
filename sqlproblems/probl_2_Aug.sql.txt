@@ -1,0 +1,101 @@
+-- -------------------------------------------------------------------
+-- Date: 2-Aug | DataLemur  | Topic: SQL (Hard)
+-- Problem: Senior Managers
+-- -------------------------------------------------------------------
+
+SELECT e2.manager_name, COUNT(DISTINCT e2.emp_id) AS direct_reportees
+  FROM employees e1
+  JOIN employees e2
+  ON e1.manager_id = e2.emp_id 
+  JOIN employees e3
+  ON e2.manager_id = e3.emp_id
+  GROUP BY 1
+  ORDER BY COUNT(e1.emp_id) DESC
+
+----------------------------------------------------------------------
+-- Problem: Server Utilization Time
+-- -------------------------------------------------------------------
+
+-- SOLN 1 USING JOINS AND DIFFERENTIAL SUMS
+
+WITH base AS(
+  SELECT *, 
+    RANK() OVER (
+      PARTITION BY server_id
+      ORDER BY status_time
+    ) AS rk 
+    FROM server_utilization
+  
+),
+ranked AS (
+  SELECT *
+    FROM base 
+    WHERE rk = 1
+),
+joined AS(
+  SELECT r.session_status AS ss1, su.session_status AS ss2, 
+      EXTRACT(EPOCH FROM (su.status_time - r.status_time))/(24*60*60) AS time_diff
+    FROM ranked r 
+    LEFT JOIN server_utilization su 
+    ON r.status_time < su.status_time
+    AND r.server_id = su.server_id
+),
+diff AS(
+  SELECT 
+      FLOOR(SUM(CASE WHEN ss2 = 'stop'
+        THEN time_diff ELSE 0 END)
+        -SUM(CASE WHEN ss2 = 'start'
+        THEN time_diff ELSE 0 END))
+       AS total_uptime_days  
+    FROM joined
+)
+
+SELECT *
+  FROM diff 
+
+-- SOLN 2 USING LEAD AND EPOCH
+
+WITH base AS(
+  SELECT server_id,
+        session_status,
+        status_time AS start_time,
+        LEAD(status_time) OVER(
+          PARTITION BY server_id
+          ORDER BY status_time
+        ) AS stop_time,
+        EXTRACT(EPOCH FROM LEAD(status_time) OVER(
+          PARTITION BY server_id
+          ORDER BY status_time
+        ) - status_time)/(24*60*60)
+          AS diff
+      FROM server_utilization 
+  )
+  
+SELECT FLOOR(SUM(diff))
+  FROM base
+  WHERE session_status = 'start'
+
+-- SOLN 3 USING LEAD FN AND JUSTIFY HOURS
+
+WITH base AS(
+  SELECT server_id,
+        session_status,
+        status_time AS start_time,
+        LEAD(status_time) OVER(
+          PARTITION BY server_id
+          ORDER BY status_time
+        ) AS stop_time,
+        LEAD(status_time) OVER(
+          PARTITION BY server_id
+          ORDER BY status_time
+        ) - status_time
+          AS diff
+      FROM server_utilization 
+  )
+  
+SELECT DATE_PART('days', JUSTIFY_HOURS(SUM(diff))) AS total_uptime_days
+  FROM base
+  WHERE session_status = 'start'
+    AND stop_time IS NOT NULL
+
+
