@@ -1,0 +1,12 @@
+-- -------------------------------------------------------------------
+-- Date: 2-Aug | Gemini  | Topic: Fact tables
+-- Problem: Inventory Snapshot Aggregation
+-- -------------------------------------------------------------------
+
+SELECT fc_id,
+	SUM(qty_on_hand)/COUNT(DISTINCT snapshot_date) AS av, -- average is not feasible as grain is ASIn level
+	COALESCE(SUM(qty_on_hand) FILTER (WHERE snapshot_date = '2026-07-31'), 0) AS ed
+	FROM fact_daily_inventory
+	WHERE snapshot_date BETWEEN '2026-07-01' AND '2026-07-31'
+	GROUP BY 1
+
