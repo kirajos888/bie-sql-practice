@@ -1,0 +1,12 @@
+-- -------------------------------------------------------------------
+-- Date: 4-Aug | The Date Warehouse Toolkit  | Topic: Dimension Tables for Descriptive Context
+-- -------------------------------------------------------------------
+
+fact tables - textual context - dimension tables - who/what/how/where/why/when associated with the event
+dimension atbles - handful to 100+ attribute columns - but fewer rows - each dimension by single primary key - referential integrity key
+attributes - constraints, groupings, etc
+usability = attributes should be real words - not codes - improve readability for business users
+attributes define quality of data
+numerical data can be fact or a dimension- fact when it can have a variety of data- dimension when it is constant and drives constraint and grouping.
+dimension tables are denormalized with many to one relationship in one dimension table - normalizing or snawflaking by keep ony  brand cde in a table with lookup to all other attributesfrom separate tables
+star join - fact table joined with dimensional tables for each business process
