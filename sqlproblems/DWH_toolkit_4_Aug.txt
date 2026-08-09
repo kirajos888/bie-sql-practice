@@ -10,3 +10,30 @@ attributes define quality of data
 numerical data can be fact or a dimension- fact when it can have a variety of data- dimension when it is constant and drives constraint and grouping.
 dimension tables are denormalized with many to one relationship in one dimension table - normalizing or snawflaking by keep ony  brand cde in a table with lookup to all other attributesfrom separate tables
 star join - fact table joined with dimensional tables for each business process
+
+-- -------------------------------------------------------------------
+-- Date: 8-Aug | The Date Warehouse Toolkit  | Topic: Dimension Tables for Descriptive Context
+-- -------------------------------------------------------------------
+
+simplifying star joins improves performance - index and attack fact tables
+dimension models are not built for only type of business of problem; it can be extended for every problem
+Kimball's DW/BI archi - ops source sys, ETL system, data presentation sys, and business intel app
+ops source sys- no historical data; ERP sys manages that; only for getting data
+ETL- reading and understanding source data; cleanses, process engg, makes it ready for final business presentation
+
+-- -------------------------------------------------------------------
+Normalization Spectrum
+Form | Structure | Data Redundancy | Best for | Main Weakness
+Denormalized | 1 large table | Repeat same data | Quick Reading, Analytics, DWH | Update errors, slow writing
+1NF | Flat table, no lists inside cells, single primary key | Row level duplication | Basic spreadsheets | redundant texts
+2NF | Multiple tables, no partial dependencies on combined keys | Transitive links still exist | simple relational datasets | Non-key fields still duplicate data
+3NF | Highly segmented tables, every column links to primary key | Data stored exactly once | Transactional systems (banking, e-commerce) | Reading requires multiple joins, slower read
+
+Side-by-side normalization comparison
+Form | Goal | What it eliminates | Golden rule
+1NF | Make data atomic | Repeated groups and duplicate rows | Each cell must hold exactly one value. Every table must have a primary key
+2NF | Remove partial links | Partial dependencies (only an issue with composite keys) | Each non-key to link to the entire primary key
+3NF | Remove non-key links | Transitive dependencies (columns depending on other non-key columns) | Every non-key column to dependent only on primary key
+
+
+
