@@ -1,0 +1,50 @@
+-- -------------------------------------------------------------------
+-- Date: 2-Aug | stratascratch  | Topic: PostgreSQL
+-- Problem: Consecutive Days
+-- -------------------------------------------------------------------
+
+-- SOLN 1 
+
+WITH base AS(
+    select account_id, user_id, record_date AS cur,
+            LEAD(record_date) OVER (
+                PARTITION BY account_id, user_id
+                ORDER BY record_date
+            )::DATE - record_date::DATE AS nxt1,
+            LEAD(record_date, 2) OVER (
+                PARTITION BY account_id, user_id
+                ORDER BY record_date
+            )::DATE - record_date::DATE AS nxt2
+        from sf_events
+    )
+    
+SELECT user_id
+    FROM base
+    WHERE nxt1 = 1
+    AND nxt2 = 2
+
+-- SOLN 2
+WITH base AS(
+    SELECT DISTINCT user_id, record_date AS date_c
+        FROM sf_events
+        ORDER BY user_id, date_c
+),
+ops AS (
+    SELECT user_id,
+            date_c - ROW_NUMBER() OVER (
+                PARTITION BY user_id
+                ORDER BY date_c
+            )::INT AS date_new
+        FROM base
+        
+)
+
+SELECT DISTINCT user_id
+    FROM ops
+    GROUP BY user_id, date_new
+    HAVING COUNT(*) >= 3
+
+
+-- -------------------------------------------------------------------
+-- Problem: Inventory Snapshot Aggregation
+-- -------------------------------------------------------------------

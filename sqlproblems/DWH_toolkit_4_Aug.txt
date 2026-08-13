@@ -1,0 +1,211 @@
+-- -------------------------------------------------------------------
+-- Date: 4-Aug | The Date Warehouse Toolkit  | Topic: Dimension Tables for Descriptive Context
+-- -------------------------------------------------------------------
+
+fact tables - textual context - dimension tables - who/what/how/where/why/when associated with the event
+dimension atbles - handful to 100+ attribute columns - but fewer rows - each dimension by single primary key - referential integrity key
+attributes - constraints, groupings, etc
+usability = attributes should be real words - not codes - improve readability for business users
+attributes define quality of data
+numerical data can be fact or a dimension- fact when it can have a variety of data- dimension when it is constant and drives constraint and grouping.
+dimension tables are denormalized with many to one relationship in one dimension table - normalizing or snawflaking by keep ony  brand cde in a table with lookup to all other attributesfrom separate tables
+star join - fact table joined with dimensional tables for each business process
+
+-- -------------------------------------------------------------------
+-- Date: 8-Aug | The Date Warehouse Toolkit  | Topic: Dimension Tables for Descriptive Context
+-- -------------------------------------------------------------------
+
+simplifying star joins improves performance - index and attack fact tables
+dimension models are not built for only type of business of problem; it can be extended for every problem
+Kimball's DW/BI archi - ops source sys, ETL system, data presentation sys, and business intel app
+ops source sys- no historical data; ERP sys manages that; only for getting data
+ETL- reading and understanding source data; cleanses, process engg, makes it ready for final business presentation
+
+-- -------------------------------------------------------------------
+Normalization Spectrum
+Form | Structure | Data Redundancy | Best for | Main Weakness
+Denormalized | 1 large table | Repeat same data | Quick Reading, Analytics, DWH | Update errors, slow writing
+1NF | Flat table, no lists inside cells, single primary key | Row level duplication | Basic spreadsheets | redundant texts
+2NF | Multiple tables, no partial dependencies on combined keys | Transitive links still exist | simple relational datasets | Non-key fields still duplicate data
+3NF | Highly segmented tables, every column links to primary key | Data stored exactly once | Transactional systems (banking, e-commerce) | Reading requires multiple joins, slower read
+
+Side-by-side normalization comparison
+Form | Goal | What it eliminates | Golden rule
+1NF | Make data atomic | Repeated groups and duplicate rows | Each cell must hold exactly one value. Every table must have a primary key
+2NF | Remove partial links | Partial dependencies (only an issue with composite keys) | Each non-key to link to the entire primary key
+3NF | Remove non-key links | Transitive dependencies (columns depending on other non-key columns) | Every non-key column to dependent only on primary key
+
+-- -------------------------------------------------------------------
+Presentation - presented , stored in star schema or OLAP cubes
+Feature | Star schema | OLAP
+Definition | Fact table (numerical) at center with Dimension tables (customer, product, etc) at star points | Online Analytical Processing  Cube takes data from Star schema and creates immutable outputs of every different combination of parameters.
+Data Structure | Fact n Dimension tbls | Multi-dimensional array (hypercube)
+Calculation timing | on the fly | pre-calculated and cached
+Storage engine | Std relational databases (PostgreSQL) | Multidimensional OLAP engines (Apache Kylin)
+Query language | SQL | MDX (Multidimensional eXpressions) or specialized APIs
+Query Speeds | Fast | Instantaneous
+Flexibility | High (easy to add attributes or change logic) | Low (requires full or partial rebuild)
+
+1. Always dimensionsional models - relational star schema or OLAP cubes
+2. provide granular data for adhoc user queries
+3. Adherence to the bus architecture or enterprise
+
+-- -------------------------------------------------------------------
+-- Date: 9-Aug | The Date Warehouse Toolkit  | Topic: Dimension Tables for Descriptive Context
+-- -------------------------------------------------------------------
+
+BI systems
+throughput
+quality, integrity, consistency
+users shouldn't dip into unfinished queries, asking questions which are unpleasant
+
+-- -------------------------------------------------------------------
+-- Date: 12-Aug | The Date Warehouse Toolkit  | Topic: Customer order delivery from Amazon
+-- -------------------------------------------------------------------
+
+Scenario: Customer orders product. Package travels from Amazon warehouse to delivery station and then to customer doorstep
+Kimball questions
+Business process: Package delivery
+Grain: One row per package delivery attempted/delivered to a customer 
+Dimensions: customer, products, warehouses, delivery stations, routes, date, regions, zip codes, driver
+Facts: package scan for delivery to a customer; from a warehouse to a delivery station via the optimized route; selling price, discount, sold at price, tax, distance travelled, shipping costs, weight
+
+Star schema layout
+
+
+dim_customer
+
+customer_id (PK)
+address
+contact
+
+
+dim_product			facts_cust_orders			dim_date
+									
+product_id (PK)			customer_id (FK)			date (PK)
+category			product_id (FK)				time_zone
+price				warehouse_id (FK)
+				date (FK)
+				<measure>
+dim_warehouse			sold_at_price
+				weight
+warehouse_id(PK)		distance_travelled
+region				shipping_costs
+address
+
+
+Scenario 2: Customer returns
+Business process: customers returning packages ordered from Amazon
+Grain: Return package pickup attempt from customer
+Dimensions: customer, product, return reason, pickup driver, warehouse, date
+Facts: sold price, refund amount, distance travelled, transportation cost
+
+Star schema:
+
+dim_customer
+
+customer_id (PK)
+address
+contact
+
+
+dim_product			facts_cust_orders			dim_date
+									
+product_id (PK)			customer_id (FK)			date (PK)
+category			product_id (FK)				time_zone
+price				warehouse_id (FK)
+				date (FK)
+				<measure>
+dim_warehouse			sold_at_price
+				weight
+warehouse_id(PK)		distance_travelled
+region				trans_costs
+address				refund_amt
+
+
+Refined Star schema with following corrections.
+1. Surrogate keys
+2. Date in integer format
+3. Degenerate dimensions
+
+
+dim_customer
+
+customer_key (INT) (PK)
+customer_id (NK)
+address
+contact
+
+
+dim_product			facts_cust_orders			dim_date
+									
+product_key (INT) (PK)
+product_id (NK)			customer_key (FK)			date (INT) (PK)
+category			product_key (FK)			time_zone
+price				warehouse_key (FK)			year
+				date (FK)				quarter
+				<degenerate dimension>			month
+				return_reason				week
+				<measure>				day
+dim_warehouse			sold_at_price
+				weight
+warehouse_key (INT) (PK)
+warehouse_id(NK)		distance_travelled
+region				trans_costs
+address				refund_amt
+
+
+Query sample:
+Business Question: "Find the top 3 product categories with the highest total refund amount in the 'West' warehouse region during Q2 of 2026."
+
+thinking:
+sum refund amt
+group by product cat
+filter west , Q2, 2026
+top 3 using DENSE_RANK
+
+query:
+
+WITH t_join AS 
+(SELECT p.category, SUM(f.refund_amt) AS total_refund
+	FROM facts_cust_orders f
+	JOIN dim_warehouse w
+	on f.warehouse_key = w.warehouse_key
+	JOIN dim_product p
+	ON f.product_key = p.product_key
+	JOIN dim_date d
+	ON f.date = d.date
+	WHERE w.region = 'West' 
+	AND d.year = 2026 --EXTRACT(date, 'Year') = 2026
+	AND d.quarter --EXTRACT(date, 'Quarter') = 2
+	GROUP BY p.category
+	ORDER BY 2 DESC
+),
+t_rank AS 
+(SELECT category, total_refund,
+	DENSE_RANK() OVER (
+		ORDER BY total_refund DESC
+	) AS rk
+	FROM t_join
+)
+
+SELECT category, total_refund
+	FROM t_rank
+	WHERE rk <= 3
+
+
+Faster query:
+SELECT p.category, SUM(f.refund_amt) AS total_refund
+	FROM facts_cust_orders f
+	JOIN dim_warehouse w
+	on f.warehouse_key = w.warehouse_key
+	JOIN dim_product p
+	ON f.product_key = p.product_key
+	JOIN dim_date d
+	ON f.date = d.date
+	WHERE w.region = 'West' 
+	AND d.year = 2026 --EXTRACT(date, 'Year') = 2026
+	AND d.quarter --EXTRACT(date, 'Quarter') = 2
+	GROUP BY p.category
+	ORDER BY 2 DESC
+	LIMIT 3

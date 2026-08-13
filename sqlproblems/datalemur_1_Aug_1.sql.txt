@@ -1,0 +1,124 @@
+-- -------------------------------------------------------------------
+-- Date: 1-Aug | DataLemur  | Topic: SQL (Hard)
+-- Problem: Median Google Search Frequency
+-- -------------------------------------------------------------------
+
+WITH base AS(
+  SELECT searches
+    FROM search_frequency
+    GROUP BY searches, GENERATE_SERIES(1, num_users)
+    ORDER BY searches, GENERATE_SERIES(1, num_users)
+)
+
+SELECT ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP(
+          ORDER BY searches)::DECIMAL
+          , 1) AS median
+  FROM base 
+
+----------------------------------------------------------------------
+-- Problem: Patient Support Analysis (Part 3)
+-- -------------------------------------------------------------------
+
+-- SOLN 1 USING SELF JOIN AND EXTRACT/EPOCH
+
+WITH base AS (  
+  SELECT c1.policy_holder_id, c1.call_date AS t , c2.call_date AS p
+    FROM callers c1
+    JOIN callers c2
+    ON c1.policy_holder_id = c2.policy_holder_id
+    AND c1.call_date > c2.call_date
+)
+
+SELECT COUNT(DISTINCT policy_holder_id)
+  FROM base
+  WHERE EXTRACT(EPOCH FROM t - p)/(24*60*60) <= 7
+
+--SOLN 2 USING LAG and INTERVAL
+
+WITH base AS (  
+  SELECT policy_holder_id,
+          LAG(call_date) OVER (
+              PARTITION BY policy_holder_id
+              ORDER BY call_date
+            ) AS previous_call,
+          call_date
+             
+    FROM callers
+  )
+
+SELECT COUNT(DISTINCT policy_holder_id)
+  FROM base 
+  WHERE call_date - previous_call <= INTERVAL '168 hours'
+
+----------------------------------------------------------------------
+-- Problem: Patient Support Analysis (Part 4)
+-- -------------------------------------------------------------------
+
+WITH base AS(
+  SELECT EXTRACT(YEAR FROM call_date) AS yr,
+          EXTRACT(MONTH FROM call_date) AS mn,
+          COUNT(case_id) AS ct,
+          LAG(COUNT(case_id)) OVER(
+            ORDER BY EXTRACT(YEAR FROM call_date), EXTRACT(MONTH FROM call_date) 
+          ) as ct2
+        FROM callers 
+        WHERE call_duration_secs > 300
+        GROUP BY 1, 2
+        ORDER BY 1, 2
+)
+
+SELECT yr, mn, 
+    ROUND(100.0 * (ct/ct2::DECIMAL - 1), 1) AS yoy
+  FROM base 
+
+----------------------------------------------------------------------
+-- Problem: Repeated Payments
+-- -------------------------------------------------------------------
+
+-- SOLN 1 USING SELF JOIN AND 1) INTERVAL AND 2) EPOCH
+-- Never use Self join for adjacent row comparisons. Its only supposed to be used for comparing with arbitrary number of rows
+
+SELECT COUNT(DISTINCT t1.transaction_id)
+  FROM transactions t1
+  JOIN transactions t2
+  ON t1.merchant_id = t2.merchant_id
+  AND t1.credit_card_id = t2.credit_card_id 
+  AND t1.amount = t2.amount 
+  AND t1.transaction_timestamp > t2.transaction_timestamp
+  AND t1.transaction_timestamp - t2.transaction_timestamp >= INTERVAL '10 minutes'
+  --EXTRACT(EPOCH FROM t1.transaction_timestamp - t2.transaction_timestamp)/60 <= 10 
+
+-- SOLN 2 USING LAG
+
+WITH base AS (
+  SELECT transaction_id, 
+      (transaction_timestamp - 
+        LAG(transaction_timestamp) OVER(
+          PARTITION BY merchant_id, credit_card_id, amount
+          ORDER BY transaction_timestamp
+        )) AS diff
+    FROM transactions
+ ) 
+
+SELECT COUNT(transaction_id) -- no need of DISTINCT
+  FROM base 
+  WHERE diff IS NOT NULL
+	AND diff <= INTERVAL '10 minutes'
+
+----------------------------------------------------------------------
+-- Problem: Reactivated Users
+-- -------------------------------------------------------------------
+
+SELECT EXTRACT (MONTH FROM login_date) AS mnth,
+    COUNT(DISTINCT user_id) AS reactivated_users 
+  FROM user_logins c
+  WHERE NOT EXISTS(
+    SELECT 1 
+      FROM user_logins p
+      WHERE c.user_id = p.user_id
+      AND EXTRACT (MONTH FROM c.login_date) - EXTRACT (MONTH FROM p.login_date) = 1 
+  )
+  GROUP BY EXTRACT (MONTH FROM login_date)
+  ORDER BY EXTRACT (MONTH FROM login_date)
+
+
