@@ -834,9 +834,14 @@ SELECT warehouse\_id
 
 \-- -------------------------------------------------------------------
 
-\-- Date: 16-Aug | The Date Warehouse Toolkit  | Topic: XYZ
+\-- Date: 23-Aug | The Date Warehouse Toolkit  | Topic: Factless fact table and Junk Dimension
 
 \-- -------------------------------------------------------------------
+
+Factless Fact tables: Fact tables with only foreign keys and no numericals are factless fact tables. These are used to show the existence of something like promotions for products in multiple store branches in different dates or attendance of students in different classes. A usecase is finding products on promotion with no sales by joining it with sales fact table.
+Junk Dimension tables: Instead of collecting multiple foreign keys with few number of variances, we can collate all of these in one dimension table with a single foreign key in the fact table. This reduces the row width and database join processing time. If you create dimension tables for each of them, your query would require 4-5 extra joins.
+
+
 
 
 
