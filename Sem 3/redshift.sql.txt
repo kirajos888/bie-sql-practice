@@ -1,0 +1,27 @@
+create table fact_cust(
+	return_key BIGINT NOT NULL,
+	date_key INT NOT NULL,
+	cust_key INT NOT NULL,
+	prod_key INT NOT NULL,
+	wh_key INT NOT NULL,
+	refund_amt NUMERIC(12,2) NOT NULL
+)
+
+DISTSTYLE KEY
+DISTKEY(cust_key) --KEY DISTKEY directing Redshift  to store all rows for same cust_key in same node slice
+COMPOUND SORTKEY(date_key); -- directs Redshift for columnar storage in the order of date_key and uses zone maps to skip disks during date filter
+
+create table fact_sales(
+	cust_key INT NOT NULL,
+	prod_key INT NOT NULL,
+	store_key INT NOT NULL,
+	sales_amt NUMERIC(6,2) NOT NULL
+)
+DISTSTYLE KEY
+DISTKEY(cust_key); -- hashes cust_key so every row co-locates on every slice node
+
+create table dim_store(
+	store_key INT NOT NULL,
+	city VARCHAR(50)
+)
+DISTSTYLE ALL; -- replicate into every slice node for local joins
