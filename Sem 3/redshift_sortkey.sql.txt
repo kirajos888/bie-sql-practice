@@ -1,0 +1,29 @@
+
+-- Redshift uses Sortkeys in combination with with Zone maps to overcome the performance bottleneck of reading all disk blocks
+-- Zone Maps are maintained by leader node to decide which 1MB disk block to scan. It holds the record for the min/max of each columns held by each 1MB disk block.
+-- Type A : Compound Sort key - sorting hierarchichally based on the order of the defined columns 
+
+CREATE TABLE fact_sales(
+	...
+)
+
+COMPOUND SORTKEY(year, month, customer_id);
+
+-- sorting is done based on year first and month within. Within month, customer id. It succeeds if the query is sorting in this orer. Fails if customer id is chosen in the query for sorting because redshift then has to do a fill table can.
+
+-- Type B : Interleaved Key - all columns are given equal weightage, using multidimensional space filling curve (Z-order curve). This is used when multiple teams query based on different keys - cust id, prod id, store id.
+-- this is cumbersome when ingesting data
+
+CREATE TABLE fact_sales(
+	....
+)
+
+INTERLEAVED SORTKEY(cust_id, prod_id, store_id);
+
+-- This requires high maintenance with "VACUUM REINDEX" command vs. just "VACUUM" for compound
+
+
+-- Rules of thumb for sorting
+-- 1 Leading with date columns
+-- Lowest cardinality to highest (lease uniqueness to highest)
+-- 1 to 4 columns
