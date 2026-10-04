@@ -1,0 +1,68 @@
+===============================================================================
+                       GIT CHEAT SHEET FOR NOTEPAD
+===============================================================================
+
+[1] INITIAL SETUP & CONFIG
+-------------------------------------------------------------------------------
+git config --global user.name "Your Name"
+git config --global user.email "your.email@example.com"
+git init                                   # Initialize new repository
+git clone <url>                            # Clone remote repository
+
+
+[2] BASIC WORKFLOW (STAGING & COMMITTING)
+-------------------------------------------------------------------------------
+git status                                 # Check working tree status
+git add <filename>                         # Stage specific file
+git add .                                  # Stage all modified and new files
+git commit -m "Commit message"             # Commit staged changes
+git commit -am "Commit message"            # Stage tracked files & commit
+
+
+[3] BRANCHING & MERGING
+-------------------------------------------------------------------------------
+git branch                                 # List local branches
+git branch <branch-name>                   # Create new branch
+git checkout <branch-name>                 # Switch to branch
+git checkout -b <branch-name>              # Create and switch to new branch
+git switch <branch-name>                   # Modern alternative to checkout
+git merge <branch-name>                    # Merge branch into active branch
+git branch -d <branch-name>                # Delete local branch
+
+
+[4] REMOTES & SYNCHRONIZATION
+-------------------------------------------------------------------------------
+git remote add origin <url>                # Add remote server
+git remote -v                              # List configured remotes
+git fetch                                  # Download remote changes (no merge)
+git pull                                   # Fetch and merge remote changes
+git push origin <branch-name>              # Push local commits to remote
+git push -u origin <branch-name>           # Push & set default tracking branch
+
+
+[5] INSPECTING HISTORY
+-------------------------------------------------------------------------------
+git log                                    # Show commit history
+git log --oneline                          # Concise single-line log view
+git log --graph --oneline --all            # Visual branch structure log
+git diff                                   # Show unstaged modifications
+git diff --staged                          # Show changes staged for commit
+
+
+[6] UNDOING & REVERTING CHANGES
+-------------------------------------------------------------------------------
+git restore <filename>                     # Discard working directory changes
+git restore --staged <filename>            # Unstage file (keep local changes)
+git commit --amend -m "New message"        # Modify the last commit
+git reset --soft HEAD~1                    # Undo last commit (keep changes staged)
+git reset --hard HEAD~1                    # Destroy last commit & local changes
+git revert <commit-hash>                   # Create new commit reverting changes
+
+
+[7] STASHING (TEMPORARY SAVES)
+-------------------------------------------------------------------------------
+git stash                                  # Temporarily stash uncommitted work
+git stash pop                              # Apply stashed changes & delete stash
+git stash list                             # View all stashed changes
+
+===============================================================================

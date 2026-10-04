@@ -1,0 +1,108 @@
+================================================================================
+          SEMESTER 3: CLOUD INFRASTRUCTURE & AWS DATA ENGINEERING (DEA-C01)
+================================================================================
+
+--------------------------------------------------------------------------------
+PROLOGUE: ARCHITECTURE & SYSTEMS BRIDGE
+(Connecting Semester 2 Kimball Modeling & DDIA Systems Internals to AWS)
+--------------------------------------------------------------------------------
+
+1. STORAGE LAYOUTS: ROW-ORIENTED VS. COLUMNAR
+   * Row-Oriented Layout (OLTP / PostgreSQL / MySQL):
+     - Writes full records sequentially on disk.
+     - Optimized for single-row reads and fast transactional updates.
+   * Columnar Layout (OLAP / Amazon Redshift / Apache Parquet / Athena):
+     - Groups values of the same column together on contiguous disk blocks.
+     - Why Kimball Needs Columnar: Queries like SUM(refund_amt) read ONLY the
+       blocks containing refund_amt, skipping unneeded attributes on disk.
+
+2. DISTRIBUTED PARTITIONING & DATA PLACEMENT
+   * In S3 Data Lakes:
+     - Partitioning maps to directory prefixes (e.g., s3://bucket/year=2026/month=07/).
+     - Enables Partition Pruning: Engines (Athena) open only specific folders.
+   * In Amazon Redshift:
+     - DISTKEY (Hash Partitioning): Co-locates fact and dimension rows with matching
+       keys on the same compute node slice (Zero-Shuffle Join).
+     - DISTSTYLE ALL (Replication): Replicates small dimension tables across every
+       node so joins execute locally in memory.
+
+3. MUTABILITY, SSTABLES, AND APPEND-ONLY DATA LAKES
+   * S3 Data Lakes are Append-Only:
+     - Cannot modify individual bytes inside existing S3 files.
+     - Updating data requires overwrite operations or modern Table Formats
+       (Apache Iceberg / Delta Lake) using ACID manifest logs.
+   * Amazon Redshift Append-Only Mechanics:
+     - Updates/Deletes mark old row blocks as logically deleted in a bitmap and
+       append new rows.
+     - The VACUUM command reclaims deleted blocks in the background.
+
+4. SUMMARY BRIDGE MATRIX
+   -----------------------------------------------------------------------------
+   Kimball Concept (Sem 2)  | DDIA Systems Mechanism   | AWS Implementation
+   -----------------------------------------------------------------------------
+   Fact Aggregations        | Columnar Vectorized Exec | Redshift / Parquet
+   Star Schema Joins        | Partition Co-location    | Redshift DISTKEY / ALL
+   dim_date Lookup Pruning  | Range Index / Zone Maps  | Redshift Sort Keys / S3
+   SCD Type 2 History       | Immutable Append Logs    | Apache Iceberg / Glue ETL
+   Degenerate Dimensions    | Low-cardinality Encoding | Parquet Dictionary Enc.
+   -----------------------------------------------------------------------------
+
+
+================================================================================
+MODULE BREAKDOWN & ROADMAP
+================================================================================
+
+[ PROLOGUE ] ---> [ MODULE 1 ] ---> [ MODULE 2 ] ---> [ MODULE 3 ] ---> [ MODULE 4 ]
+Architecture      S3 Data Lakes     Amazon Redshift   AWS Glue ETL &    Orchestration,
+& Systems Bridge  & File Formats    Cloud Warehouse   Spark Processing  Security & IAM
+
+
+--------------------------------------------------------------------------------
+MODULE 1: Storage Layer & S3 Data Lake Design
+--------------------------------------------------------------------------------
+* Core Services: Amazon S3, AWS Glue Data Catalog, Amazon Athena
+* Key Concepts:
+  - Object storage vs. Block/File storage
+  - File Formats: CSV vs. JSON vs. Apache Parquet (columnar compression)
+  - Partitioning Strategies: Structuring S3 prefixes to prevent full scans
+  - S3 Lifecycle Policies & Glacier Deep Archive cost optimization
+* Hands-on Deliverable: Convert raw CSVs to partitioned Parquet files on S3 
+  and query via Amazon Athena.
+
+
+--------------------------------------------------------------------------------
+MODULE 2: High-Performance Warehousing (Amazon Redshift)
+--------------------------------------------------------------------------------
+* Core Services: Amazon Redshift (Provisioned & Serverless), Redshift Spectrum
+* Key Concepts:
+  - Massive Parallel Processing (MPP) architecture: Leader vs. Compute Nodes
+  - Distribution Styles (AUTO, KEY, EVEN, ALL) to eliminate network shuffle
+  - Sort Keys (COMPOUND vs INTERLEAVED) and Zone Maps
+  - Redshift Spectrum: Querying S3 Data Lake files directly
+* Hands-on Deliverable: Load Kimball Star Schema into Redshift, optimize DISTKEY
+  and SORTKEY, and measure query performance.
+
+
+--------------------------------------------------------------------------------
+MODULE 3: ETL & Data Transformation (AWS Glue & Apache Spark)
+--------------------------------------------------------------------------------
+* Core Services: AWS Glue (Crawlers, Data Catalog, ETL Jobs), AWS EMR
+* Key Concepts:
+  - Serverless Spark: PySpark basics, DynamicFrame vs DataFrame
+  - Glue Crawlers: Auto-discovering schema changes and partition evolution
+  - Handling Data Drift and schema compatibility (Avro/Parquet)
+* Hands-on Deliverable: PySpark Glue script to ingest raw JSON from S3, clean
+  duplicates, transform schemas, and write partitioned Parquet.
+
+
+--------------------------------------------------------------------------------
+MODULE 4: Orchestration, Security & Cloud Operations
+--------------------------------------------------------------------------------
+* Core Services: AWS Step Functions, MWAA (Apache Airflow), IAM, KMS
+* Key Concepts:
+  - Pipeline Orchestration: S3 Created -> EventBridge -> Step Functions -> Glue
+  - Cloud Security: Least Privilege IAM Roles, Lake Formation, KMS Encryption
+  - Monitoring: CloudWatch Logs/Alarms and SNS failure alerts
+* Hands-on Deliverable: Build an automated event-driven pipeline triggered 
+  by new file landings on S3.
+================================================================================

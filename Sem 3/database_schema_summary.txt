@@ -1,0 +1,57 @@
+===================================================================
+              DATABASE SCHEMAS: 3NF VS. STAR SCHEMA
+===================================================================
+
+1. HIGHLY NORMALIZED (3NF) — OLTP (Transactional)
+-------------------------------------------------------------------
+Primary Goal:
+  - Optimize for WRITING (FAST updates, inserts, deletes).
+  - High data integrity with zero redundant data.
+
+Structure:
+  - Data is split into many specialized, highly granular tables.
+  - Tables are linked together using Foreign Keys (FK).
+
+Key Benefits:
+  - Minimizes Redundancy: Information exists in exactly one place.
+  - Prevents Write Contention: Updates lock only specific, small rows.
+  - Ensures Consistency: Updating a record (e.g., user address) 
+    requires modifying only one row.
+
+Trade-offs:
+  - Requires heavy, expensive runtime JOINs for multi-table reports.
+  - Slower complex queries across large historical datasets.
+
+Best Used For:
+  - Application backends, e-commerce checkout, banking, operational data.
+  - Database engines: PostgreSQL, MySQL, SQL Server, Oracle.
+
+
+2. DENORMALIZED (STAR / SNOWFLAKE) — OLAP (Analytics)
+-------------------------------------------------------------------
+Primary Goal:
+  - Optimize for READING (FAST aggregate queries, reports, dashboards).
+  - Eliminate complex runtime JOINs.
+
+Structure:
+  - Centered around a central FACT table (contain numerical metrics 
+    like revenue, quantities, costs).
+  - Surrounded by DIMENSION tables (contain descriptive attributes 
+    like customer details, product info, dates).
+
+Key Benefits:
+  - Eliminates Runtime JOINs: Queries run directly against flat tables.
+  - High Read Performance: Columnar storage allows scanning billions 
+    of rows in seconds.
+  - Simple Query Logic: Easy to write SQL queries and integrate with BI 
+    tools (Tableau, PowerBI).
+
+Trade-offs:
+  - High Data Redundancy: Descriptive attributes are duplicated.
+  - Slow Writes/Updates: Not designed for frequent single-row updates.
+
+Best Used For:
+  - Data Warehouses, business intelligence, reporting, data science.
+  - Database engines: Snowflake, Google BigQuery, Amazon Redshift.
+
+===================================================================
