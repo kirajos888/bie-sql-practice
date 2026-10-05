@@ -1,0 +1,53 @@
+AWS Glue
+Automated program - Scans data stores like S3, Redshift, DynamoDB, etc and inspects data formats, determines schemas and populates AWS Glue data Catalog with table definitions.
+Work?
+1. Classifier inspection: evaluates data against built-in classifiers (Parquet, csv, json, etc) to determine format ans schema
+2. Partition detection: year and months as partition
+3. Catalog synchronization: Saves table definitiions i Data catalog for query engines to read files via SQL
+
+Handling Schema evolution
+1. Update table definition
+2. Ignore the change
+3. Mark as deprecated
+
+AWS Glue Job Bookmarks (Incremental processing)
+no re-reading historical files; skip and read new or modified data/files
+
+Run 1 (10:00 AM):  s3://bucket/file_1.parquet  ──► [ PROCESSED ]  ──► Saved in Bookmark
+--------------------------------------------------------------------------------------
+Run 2 (11:00 AM):  s3://bucket/file_1.parquet  ──► [ SKIPPED ]
+                   s3://bucket/file_2.parquet  ──► [ PROCESSED ]  ──► Saved in Bookmark
+
+Mechanics
+State persisting - Glue stores metadata (last modified timestamps, S3 keys)in a dedicated persistent state store outside your script
+Execution options: Enable, pause and reset
+
+# Enable bookmark state tracking in Glue job execution
+job.init(args['JOB_NAME'], args)
+
+# Glue inspects Job Bookmarks automatically during S3 catalog reads
+datasource0 = glueContext.create_dynamic_frame.from_catalog(
+    database="analytics_db",
+    table_name="raw_s3_logs",
+    transformation_ctx="datasource0"  # Required context key for tracking bookmark state
+)
+
+# Commit state at the end of execution
+job.commit()
+
+
+
+AWS Glue Worker types & Data Processing Unit (DPU)
+AWS Glue measures processing capacity in terms of DPUs. A single DPU provides 4 vCPUs and 16GB of RAM and 64GB SSD - G.1X
+
+Worker Type,vCPUs,Memory (RAM),Local Disk Storage,Primary Use Case
+G.1X,4 vCPUs,16 GB,64 GB SSD,Standard PySpark ETL workloads with balanced compute and memory needs.
+G.2X,8 vCPUs,32 GB,128 GB SSD,"Memory-intensive jobs: Heavy joins, large window functions, complex deduplication, or high-cardinality aggregations."
+G.4X,16 vCPUs,64 GB,256 GB SSD,Extreme scale: Heavy distributed transformations handling multi-terabyte datasets per run.
+G.8X,32 vCPUs,128 GB,512 GB SSD,Maximum compute density for massive enterprise workloads.
+G.025X,2 vCPUs,4 GB,20 GB SSD,"Lightweight streaming / Python shell: Low-data transformations, API polling, or small file orchestration."
+
+DPU Sizing formula - to estimate cost and sizing:
+Total Cost = number of workers x DPU rating per worker x Execution time (hrs) x $0.44 / DPU-hrs
+
+Rule of Thumb: Start with 10 G.1X workers and increase worker rating if crashes with OOM Error.

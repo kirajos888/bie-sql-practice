@@ -1,0 +1,13 @@
+/* Question 1 on Data Store Mgmt : "A company's analytical queries joining a 500 GB fact table with a 50 MB dimension table are running slowly in Redshift due to high network traffic between compute nodes. How should you optimize the tables?"
+
+Thinking:
+500GB fact table - DISTSTYLE KEY
+50 MB dim tbl - DISTSTYLE ALL
+High network shuffle
+
+
+Question 2 on Data Ingestion and Querying: "An Amazon Athena query scanning 2 TB of CSV data on S3 takes several minutes and costs $10 per run. What changes should a Data Engineer make to optimize query speed and reduce costs?"
+
+Thinking: 
+csv convert to Apache Parquet (Columnar storage)
+Partition pruning in S3 based on date 

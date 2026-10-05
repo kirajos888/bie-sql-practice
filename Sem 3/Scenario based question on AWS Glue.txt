@@ -1,0 +1,95 @@
+Scenario based question on AWS Glue Ingestion and capacity planning
+
+The Situation 1:
+
+A financial trading platform ingests millions of raw JSON transaction files every hour into an Amazon S3 landing bucket (s3://trading-lake-raw/transactions/).
+
+The Data Engineering team runs a hourly scheduled AWS Glue ETL job to process these files, transform them into Parquet format, and write them to a partitioned S3 Data Lake (s3://trading-lake-curated/year=YYYY/month=MM/day=DD/).
+
+The Incidents:
+
+Duplicate Data Processing: Every time the hourly Glue job runs, it re-reads all historical JSON files sitting in the landing bucket from previous days, causing duplicate records in the curated lake and inflating AWS Glue DPU costs.
+
+OutOfMemory (OOM) Crashes on Joins: When the Glue job performs a heavy memory-intensive join against a historical 80 GB reference table using standard G.1X workers (4 vCPUs, 16 GB RAM), individual worker nodes crash frequently with java.lang.OutOfMemoryError: Java heap space errors during the Spark shuffle step.
+
+Missing Partition Metadata: When new daily partition folders are created in S3, downstream Amazon Athena queries fail to see the new data until someone manually runs a full catalog repair scan.
+
+The Task:
+
+Which combination of configurations will resolve all three issues with minimal operational overhead and optimal DPU cost efficiency?
+
+
+Answer:
+
+Duplicate data processing - There are no AWS Glue job bookmarks are not enabled driving re-reading historical data.
+OOM crashes happen because G.2X workers are needed for memory intensive joins. Currently, they are using G.1X workers. Adding G.1X does not help.
+AWS Glue Crawlers are not operating automatically to inspect the S3 data persistently and refresh the table definitions. Set schema change policy to update tbl def in the data catalog.
+
+
+___________________________________________
+
+
+Scenarion B: Optimizing an Enterprise ETL Pipeline
+Scenario:
+An e-commerce company ingests daily transactional JSON logs into an Amazon S3 bucket partitioned by date (s3://company-analytics-data/raw/YYYY/MM/DD/). You are building an AWS Glue ETL job to transform these logs and write them to an Amazon S3 datalake in Parquet format, partitioned by year and month (s3://company-analytics-data/curated/YYYY/MM/).
+
+The system has the following operational requirements:
+
+Cataloging: New partitions in the raw S3 bucket must be registered automatically in the AWS Glue Data Catalog every night before the ETL job runs.
+
+Incremental Processing: The Glue ETL job runs daily and must process only the new files added since the last successful run, without re-reading or reprocessing historical data.
+
+Resource Efficiency: The raw dataset grows by roughly 10 GB per day (uncompressed JSON). A previous test run using default settings took hours to complete because millions of tiny JSON files caused extreme overhead.
+
+
+
+
+
+Answer:
+AWS Glue Crawler to automatically inspect data and create table definitions in AWS Glue data Catalog
+AWS Glue Job Bookmark to process only the new or modified files or data.
+Each file should be 128MB to 512MB in size for optimal performance. Configure incoming JSON files to be in this format.
+
+Correct Answer 
+AWS glue crawlers with recrawl policy set to new folders only and schema change policy set to update the catalog table definition  and inherit schema changes from the table
+
+Glue job bookmarks (Incremntal loads)
+enablement 
+implementation in code
+
+
+___________________________________________
+
+
+Practice Test Questions (DEA-C01 Style)
+Question 1
+A Data Engineer enables Glue Job Bookmarks for an ETL job reading from S3, but notices that during subsequent runs, the job continues to re-process historical files along with new files. What is the most likely root cause?
+
+A) The source S3 bucket is using KMS encryption.
+
+B) The script is using native Apache Spark DataFrames (spark.read.json) instead of Glue DynamicFrames with a transformation_ctx.
+
+C) The AWS Glue Crawler was not run immediately before the ETL job started.
+
+D) Job Bookmarks only work with JDBC sources, not Amazon S3.
+
+Question 2
+A daily Glue ETL job reads 10 GB of uncompressed JSON spread across 200,000 individual S3 objects. The job runs out of memory (OOM) or takes over 3 hours to complete. Which solution addresses the root cause while optimizing DPU costs?
+
+A) Increase the maximum capacity from 10 DPUs to 100 DPUs using standard worker types.
+
+B) Switch the worker type from G.1X to G.2X and set --enable-auto-scaling.
+
+C) Configure groupFiles to inGroup with a groupSize of 134217728 (128 MB) in the S3 read options.
+
+D) Convert the Glue job to an AWS EMR cluster running Presto.
+
+Answer Key & Explanations
+Correct Answer: B
+
+Explanation: Glue Job Bookmarks require Glue DynamicFrames (or Glue S3 readers) initialized with a unique transformation_ctx identifier. Standard PySpark DataFrames (spark.read) bypass Glue's state management mechanism, causing the job to re-read all files on every run.
+
+Correct Answer: C
+
+Explanation: The issue is driven by the "small file problem," where Spark spends more time managing object metadata overhead than processing data. Enabling groupFiles consolidates small files into ~128 MB partitions in memory, drastically reducing driver/worker overhead without needing to throw massive (and expensive) DPU compute scale at the problem.
+___________________________________________

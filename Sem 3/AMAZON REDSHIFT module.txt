@@ -1,0 +1,11 @@
+					AMAZON REDSHIFT
+                                        	 │
+        ┌────────────────────────────────┼────────────────────────────────┐
+        ▼                                ▼                                ▼
+  DISTRIBUTION KEYS                  SORT KEYS                    REDSHIFT SPECTRUM
+  (Network Shuffle)             (Disk Block Skipping)           (Direct S3 Querying)
+┌──────────────────┐           ┌──────────────────┐           ┌──────────────────┐
+│ • KEY (Co-locate)│           │ • COMPOUND       │           │ • Serverless     │
+│ • ALL (Replicate)│           │ • INTERLEAVED    │           │ • Glue Catalog   │
+│ • EVEN (Spread)  │           │ • Zone Maps      │           │ • Parquet / S3   │
+└──────────────────┘           └──────────────────┘           └──────────────────┘
