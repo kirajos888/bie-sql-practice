@@ -1,0 +1,22 @@
+import sys
+from awsglue.context import GlueContext
+from awsglue.job import Job
+from awsglue.utils import getResolvedOptions
+from pyspark.context import SparkContext
+
+#1. Grab arguments passed to this job (job name or custom parameters)
+args = getResolvedoptions(sys.argv, ["JOB NAME"])
+
+#2. Connect to the underlying Spark engine
+sc = SparkContext()
+GlueContext = SparkContext(SC)
+spark = glueContext.spark_session
+
+#3. Start the Glue Job and enable state tracking (Job Bookmarking)
+job = Job(glueContext)
+job.init(args["JOB NAME"], args)
+
+#...[YOUR ETL CODE GOES HERE]...
+
+#4. Save state at the end (tells Bookmark : "I finished up to file X!")
+job.commit()
