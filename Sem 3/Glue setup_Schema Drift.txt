@@ -1,0 +1,81 @@
+# Glue script setup (Boilerplate)
+
+import sys
+from awsglue.Context import GlueContext
+from awsglue.job import Job
+from awsglue.utils import ResolvedOptions
+from awsglue.Spark import SparkContext
+
+# 1. Grab arguments passed to this job (like job name and other custom parameters)
+
+args = getResolvedOptions(sys.argv, ["JOB NAME"])
+
+# 2. Connec to the underlying Spark engine
+
+sc = SparkContext()
+glueContext = GlueContext(sc)
+spark = glueContext.spark_session
+
+# 3. Enable glue job and start state tracking (Job Bookmarks)
+
+job = Job(glueContext)
+job.init(args["JOB NAME"], args)
+
+# 4. ...[YOUR ETL CODE GOES HERE]...
+
+# 5. Save state at the end (tells Bookmark : "i finished up to file X")
+job.commit()
+
+"""
+getResolvedOptions: Reads command-line arguments sent to Glue.
+
+SparkContext() / GlueContext(): Sets up the distributed compute engine across all worker nodes.
+
+job.init(): Activates Job Bookmarks tracking so Glue remembers which files it has already processed.
+
+job.commit(): Writes the final state back to AWS so the next run skips these files.
+
+"""
+
+__________________________________________________
+
+
+# Reading with DynamicFrame and cleaning Schema Drift
+
+from awsglue.dynamicframe import DynamicFrame
+from awsglue.transforms import ResolvedChoice
+
+# 1. Read data directly from the Glue data Catalog
+
+datasource0 = glueContext.create_dynamic_frame.from_catalog(
+	database = "analytics_db",
+	table_name = "raw_json_logs",
+	transformations_ctx = datasource0, # Tells bookmark: "Start tracking files from this step"
+)
+
+# 2. Fix Schema Drift (cast all user_id values to string)
+
+resolved_df = ResolvedChoice.apply(
+	frame = datasource0,
+	choice = "cast:string", # Forces all conflicting types into strings without losing data
+	transformations_ctx = "resolved_df',
+)
+
+# 3. Write the cleaned data to S3 as Parquet partitioning into year/month subfolders
+
+glueContext.write_dynamic_frame.from_options(
+	frame = resolved_df,
+	connection_type = "s3",
+	connection_options = {
+		"path" : "s3://my-datalake-bucket/curated/",
+		"partitionKeys": ["year", "month"], # Creates /year=2010/month=10/ subfolders
+	}
+	format = "parquet",
+	transformations_ctx = "write_s3",
+)
+
+
+
+
+
+_______________________________________________________
